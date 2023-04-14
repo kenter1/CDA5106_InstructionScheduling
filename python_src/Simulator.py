@@ -176,9 +176,10 @@ class Sim:
                 print("Expected")
                 print(lines[index].strip())
                 test += 1
-                # break
+                if test == 2:
+                    break
             index = index + 1
-        print("# Wrong FU's", test)
+        #print("# Wrong FU's", test)
 
     def is_reservation_station_instruction_ready(self, instruction):
         reservation_item = self.reservation_station[instruction["index"]]
@@ -238,7 +239,7 @@ class Sim:
             if (writeback_instruction["WB_cycle"] == -1):
                 writeback_instruction["WB_cycle"] = self.currentCycle
 
-            writeback_instruction["current_state"] = Sim.WB
+            # writeback_instruction["current_state"] = Sim.WB
 
         while len(self.writeback_list) != 0:
             writeback_instruction = self.writeback_list.pop()
@@ -266,7 +267,7 @@ class Sim:
 
         ready_list = []
         for execute_instruction in self.execute_list:
-            if self.is_ready(execute_instruction):
+            if execute_instruction["execution_timer"] == self.currentCycle:
                 execute_instruction["ready"] = True
                 execute_instruction["EX_duration"] = Sim.EXECUTE_CYCLE_LATENCY_DICT[
                     execute_instruction["operation_type"]]
@@ -335,14 +336,12 @@ class Sim:
                 execution_cap = execution_cap - 1
 
         for ready_instruction in ready_list:
-            ready_instruction["execution_timer"] = self.currentCycle + Sim.EXECUTE_CYCLE_LATENCY_DICT[
-                ready_instruction["operation_type"]]
-            # Calcuating wrong time - could be ready_instruction list is not correct
-            ready_instruction["IS_duration"] = self.currentCycle + 1 - ready_instruction["IS_cycle"]
-            # Somehow the same instructions are getting added
-            if ready_instruction not in self.execute_list:
+            if ready_instruction not in self.execute_list and self.is_ready(ready_instruction):
                 self.execute_list.append(ready_instruction)
-            self.issue_list.remove(ready_instruction)
+                ready_instruction["execution_timer"] = self.currentCycle + Sim.EXECUTE_CYCLE_LATENCY_DICT[
+                    ready_instruction["operation_type"]]
+                ready_instruction["IS_duration"] = self.currentCycle + 1 - ready_instruction["IS_cycle"]
+                self.issue_list.remove(ready_instruction)
 
         return
 
