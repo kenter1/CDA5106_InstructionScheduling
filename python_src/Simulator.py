@@ -223,6 +223,8 @@ class Sim:
                 "QK": QK
             }
 
+    # Need to update to prevent duplicate register values from overwriting
+    # each other.
     def update_register_state(self, register, index):
         if register == -1:
             return
@@ -237,6 +239,7 @@ class Sim:
 
     def execute(self):
         # Execute instructions
+        to_remove = []
         for execute_instruction in self.execute_list:
             if execute_instruction["execution_timer"] == self.currentCycle:
                 execute_instruction["EX_duration"] = self.currentCycle - execute_instruction["EX_cycle"] + 1
@@ -244,7 +247,9 @@ class Sim:
                 execute_instruction["WB_duration"] = 1
                 execute_instruction["WB_cycle"] = self.currentCycle + 1
                 self.update_register_state(execute_instruction["dst"], -1)
-                self.execute_list.remove(execute_instruction)
+                to_remove.append(execute_instruction)
+        for item in to_remove:
+            self.execute_list.remove(item)
 
         return
 
@@ -287,7 +292,6 @@ class Sim:
                 self.issue_list.remove(issue_instruction)
                 issue_instruction["execution_timer"] = self.currentCycle + Sim.EXECUTE_CYCLE_LATENCY_DICT[
                     issue_instruction["operation_type"]]
-                issue_instruction["IS_cycle"] = self.currentCycle
                 issue_instruction["IS_duration"] = self.currentCycle - issue_instruction["IS_cycle"] + 1
                 issue_instruction["current_state"] = Sim.EX
                 issue_instruction["EX_cycle"] = self.currentCycle + 1
@@ -307,6 +311,7 @@ class Sim:
                     dispatch_instruction["current_state"] = Sim.ID
                     dispatch_instruction["ID_duration"] = self.currentCycle - dispatch_instruction["ID_cycle"] + 1
                     self.dispatch_list.remove(dispatch_instruction)
+                    dispatch_instruction["IS_cycle"] = self.currentCycle + 1
                     self.issue_list.append(dispatch_instruction)
                     self.add_instruction_reservation_station(dispatch_instruction)
         return
@@ -315,7 +320,7 @@ class Sim:
         # Fetch instructions
         while len(self.dispatch_list) < self.peak_fetch_dispatch_issue_rate:
             instruction_fetched = self.fakeRob.pop()
-            if instruction_fetched == None:
+            if instruction_fetched is None:
                 break
             else:
                 instruction_fetched["IF_cycle"] = self.currentCycle
@@ -393,7 +398,7 @@ def read_file(txtFile):
     lines = file.readlines()
     data_string = ""
     for line in lines:
-        data_string += line 
+        data_string += line
 
     return data_string + "FFFFF -1 -1 -1 -1\n"
 
