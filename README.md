@@ -8,7 +8,7 @@ A simulator for an out-of-order superscalar processor based on Tomasulo’s algo
 ## Getting Started
 To run this simulator, simply clone this repo and then run 
 
-`python3 Simulator <S> <N> <tracefile>`
+`python3 ./Simulator.py <S> <N> <tracefile>`
 
 where `<S>` is the Scheduling Queue size, `<N>` is the peak fetch and dispatch rate, issue rate
 will be up to N+1 and `<tracefile>` is the filename of the input trace.
