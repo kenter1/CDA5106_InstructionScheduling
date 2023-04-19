@@ -169,6 +169,8 @@ class Sim:
             if register is not None:
                 if register[1] == -1 or register[1] == instruction["index"]:
                     self.update_register_state(instruction["dst"], instruction["index"])
+            else:
+                self.update_register_state(instruction["dst"], instruction["index"])
 
             self.reservation_station[instruction["index"]] = {
                 "op": instruction["operation_type"],
@@ -205,8 +207,11 @@ class Sim:
                 execute_instruction["current_state"] = Sim.WB
                 execute_instruction["WB_duration"] = 1
                 execute_instruction["WB_cycle"] = self.currentCycle + 1
-                if execute_instruction["index"] == self.check_register_state(execute_instruction["dst"]):
-                    self.update_register_state(execute_instruction["dst"], -1)
+                # Need to fix this
+                dst = self.check_register_state(execute_instruction["dst"])
+                if dst is not None:
+                    if execute_instruction["index"] == dst[1]:
+                        self.update_register_state(execute_instruction["dst"], -1)
                 to_remove.append(execute_instruction)
         for item in to_remove:
             self.execute_list.remove(item)
@@ -218,20 +223,19 @@ class Sim:
         src1_ready = False
         src2_ready = False
 
-        qj = self.check_register_state(rs["qj"])
-        qk = self.check_register_state(rs["qk"])
+        qj = self.check_register_state(rs["qj"][0])
+        qk = self.check_register_state(rs["qk"][0])
 
         if qj is not None:
-            if qj[1] == execute_instruction["index"] or qj[1] == -1:
+            if qj[1] >= execute_instruction["index"] or qj[1] == -1:
                 src1_ready = True
         else:
             src1_ready = True
         if qk is not None:
-            if qk[1] == execute_instruction["index"] or qk[1] == -1:
+            if qk[1] >= execute_instruction["index"] or qk[1] == -1:
                 src2_ready = True
         else:
             src2_ready = True
-
 
         return src1_ready and src2_ready
 
@@ -261,9 +265,9 @@ class Sim:
         temp_list = sorted(self.dispatch_list, key=lambda d: d["tag"])
 
         for dispatch_instruction in temp_list:
+            dispatch_instruction["ID_cycle"] = self.currentCycle
             if len(self.issue_list) < self.scheduling_queue_size:
                 if dispatch_instruction["current_state"] == Sim.IF:
-                    dispatch_instruction["ID_cycle"] = self.currentCycle
                     dispatch_instruction["current_state"] = Sim.ID
                     dispatch_instruction["ID_duration"] = self.currentCycle - dispatch_instruction["ID_cycle"] + 1
                     self.dispatch_list.remove(dispatch_instruction)
