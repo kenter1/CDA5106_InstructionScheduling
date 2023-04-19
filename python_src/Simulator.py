@@ -154,21 +154,21 @@ class Sim:
     def add_instruction_reservation_station(self, instruction):
         value = self.reservation_station.get(instruction["index"])
 
-        qj = -1
-        qk = -1
-
         if value is None:
-            if self.check_register_state(instruction["src1"]) is not False:
+            if self.check_register_state(instruction["src1"]) is not None:
                 qj = self.check_register_state(instruction["src1"])
             else:
                 qj = instruction["src1"], instruction["index"]
 
-            if self.check_register_state(instruction["src2"]) is not False:
+            if self.check_register_state(instruction["src2"]) is not None:
                 qk = self.check_register_state(instruction["src2"])
             else:
                 qk = instruction["src2"], instruction["index"]
 
-            self.update_register_state(instruction["dst"], instruction["index"])
+            register = self.check_register_state(instruction["dst"])
+            if register is not None:
+                if register[1] == -1 or register[1] == instruction["index"]:
+                    self.update_register_state(instruction["dst"], instruction["index"])
 
             self.reservation_station[instruction["index"]] = {
                 "op": instruction["operation_type"],
@@ -185,14 +185,10 @@ class Sim:
 
     def check_register_state(self, register):
         if register == -1:
-            return False
+            return
 
         value = self.register_state.get(register)
-
-        if value is None:
-            return False
-        else:
-            return value
+        return value
 
     def fake_retire(self):
         # Remove instructions
@@ -225,11 +221,17 @@ class Sim:
         qj = self.check_register_state(rs["qj"])
         qk = self.check_register_state(rs["qk"])
 
-        if rs is not None:
+        if qj is not None:
             if qj[1] == execute_instruction["index"] or qj[1] == -1:
                 src1_ready = True
+        else:
+            src1_ready = True
+        if qk is not None:
             if qk[1] == execute_instruction["index"] or qk[1] == -1:
                 src2_ready = True
+        else:
+            src2_ready = True
+
 
         return src1_ready and src2_ready
 
@@ -239,6 +241,10 @@ class Sim:
 
         for issue_instruction in temp_list:
             value = self.reservation_station.get(issue_instruction["index"])
+            register = self.check_register_state(issue_instruction["dst"])
+            if register is not None:
+                if register[1] == -1 or register[1] == issue_instruction["index"]:
+                    self.update_register_state(issue_instruction["dst"], issue_instruction["index"])
             if value is not None and self.is_ready(issue_instruction):
                 self.issue_list.remove(issue_instruction)
                 issue_instruction["execution_timer"] = self.currentCycle + Sim.EXECUTE_CYCLE_LATENCY_DICT[
