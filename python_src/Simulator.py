@@ -222,11 +222,12 @@ class Sim:
         src1_ready = False
         src2_ready = False
 
+        qj = self.check_register_state(rs["qj"])
+        qk = self.check_register_state(rs["qk"])
+
         if rs is not None:
-            qj = rs["qj"]
             if qj[1] == execute_instruction["index"] or qj[1] == -1:
                 src1_ready = True
-            qk = rs["qk"]
             if qk[1] == execute_instruction["index"] or qk[1] == -1:
                 src2_ready = True
 
