@@ -153,17 +153,22 @@ class Sim:
 
     def add_instruction_reservation_station(self, instruction):
         value = self.reservation_station.get(instruction["index"])
-
+        rs1 = 0
+        rs2 = 0
+        val1 = 0
+        val2 = 0
         if value is None:
             if self.check_register_state(instruction["src1"]) is not None:
-                qj = self.check_register_state(instruction["src1"])
+                # Check for existing rs's
+                val1 = self.check_register_state(instruction["src1"])
             else:
-                qj = instruction["src1"], instruction["index"]
+                val1 = instruction["src1"], instruction["index"]
 
             if self.check_register_state(instruction["src2"]) is not None:
-                qk = self.check_register_state(instruction["src2"])
+                # Check for existing rs's
+                val2 = self.check_register_state(instruction["src2"])
             else:
-                qk = instruction["src2"], instruction["index"]
+                val2 = instruction["src2"], instruction["index"]
 
             register = self.check_register_state(instruction["dst"])
             if register is not None:
@@ -174,8 +179,10 @@ class Sim:
 
             self.reservation_station[instruction["index"]] = {
                 "op": instruction["operation_type"],
-                "qj": qj,
-                "qk": qk
+                "rs1": rs1,
+                "rs2": rs1,
+                "val1": val1,
+                "val2": val2
             }
 
     # Need to update to prevent duplicate register values from overwriting each other.
