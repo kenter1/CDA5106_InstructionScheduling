@@ -6,26 +6,16 @@ import sys
 
 class FakeRob:
     def __init__(self, instruction_list_string):
-        self.ZERO_REPLACEMENT = 564654
         self.fake_rob_queue = []
         self.currIndex = 0
         data_string = instruction_list_string.split("\n")
-        index = 1
+        index = 0
         for instruction in data_string:
             temp_ins_list = instruction.split(" ")
             if len(temp_ins_list) > 1:
                 dst_temp = int(temp_ins_list[2])
                 src1_temp = int(temp_ins_list[3])
                 src2_temp = int(temp_ins_list[4])
-
-                if dst_temp == 0:
-                    dst_temp = self.ZERO_REPLACEMENT
-
-                if src1_temp == 0:
-                    src1_temp = self.ZERO_REPLACEMENT
-
-                if src2_temp == 0:
-                    src2_temp = self.ZERO_REPLACEMENT
 
                 self.fake_rob_queue.append({
                     "index": index,
@@ -70,6 +60,7 @@ class Sim:
     EXECUTE_CYCLE_LATENCY_DICT = {0: 1, 1: 2, 2: 5}
 
     def __init__(self, data, scheduling_queue_size, peak_fetch_dispatch_issue_rate):
+        self.ready = []
         self.currentCycle = 0
         self.fakeRob = FakeRob(data)
         self.scheduling_queue_size = scheduling_queue_size
@@ -77,13 +68,12 @@ class Sim:
         self.dispatch_list = []
         self.issue_list = []
         self.execute_list = []
-        self.writeback_list = []
         self.register_state = {}
         self.reservation_station = {}
         self.epoch = 0
 
-    def print_list(self, state_List):
-        for state in state_List:
+    def print_list(self, state_list):
+        for state in state_list:
             print(state)
 
     def get_formatted_output(self):
@@ -95,14 +85,6 @@ class Sim:
             src1_temp = int(data["src1"])
             src2_temp = int(data["src2"])
 
-            if dst_temp == Simulator.fakeRob.ZERO_REPLACEMENT:
-                dst_temp = 0
-
-            if src1_temp == Simulator.fakeRob.ZERO_REPLACEMENT:
-                src1_temp = 0
-
-            if src2_temp == Simulator.fakeRob.ZERO_REPLACEMENT:
-                src2_temp = 0
             output_array.append((str(data["index"] - 1) +
                                  " fu{" + str(data["operation_type"])
                                  + "} src{" + str(src1_temp) + "," + str(src2_temp)
@@ -136,8 +118,9 @@ class Sim:
         # Close the file
         output.close()
 
-    def validate_file(self, txtFile):
-        file = open(txtFile, "r")
+
+    def validate_file(self, txt_file):
+        file = open(txt_file, "r")
         lines = file.readlines()
         index = 0
         test = 0
@@ -146,16 +129,7 @@ class Sim:
             src1_temp = int(data["src1"])
             src2_temp = int(data["src2"])
 
-            if dst_temp == Simulator.fakeRob.ZERO_REPLACEMENT:
-                dst_temp = 0
-
-            if src1_temp == Simulator.fakeRob.ZERO_REPLACEMENT:
-                src1_temp = 0
-
-            if src2_temp == Simulator.fakeRob.ZERO_REPLACEMENT:
-                src2_temp = 0
-
-            our_line = (str(data["index"] - 1) +
+            our_line = (str(data["index"]) +
                         " fu{" + str(data["operation_type"])
                         + "} src{" + str(src1_temp) + "," + str(src2_temp)
                         + "} dst{" + str(dst_temp)
@@ -172,64 +146,53 @@ class Sim:
                 print(lines[index].strip())
                 test += 1
                 if test == 5:
-                  break
+                    break
             index = index + 1
-       # print("# Wrong FU's", test)
 
-    def is_reservation_station_instruction_ready(self, instruction):
-        reservation_item = self.reservation_station[instruction["index"]]
+    # print("# Wrong FU's", test)
 
-        if reservation_item["QJ"] == -1 and reservation_item["QK"] == -1:
-            return True
-        else:
-            valid = True
-
-            if (reservation_item["QJ"] != -1):
-                value = self.reservation_station.get(reservation_item["QJ"])
-                if (value != None):
-                    valid = False
-                # else:
-                #    print("Cycle: " + str(self.currentCycle) + " Index was not updated: " + str(reservation_item["QJ"]) + " in instruction: " + str(instruction["index"]))
-
-            if (reservation_item["QK"] != -1):
-                value = self.reservation_station.get(reservation_item["QK"])
-                if (value != None):
-                    valid = False
-                # else:
-                #    print("Cycle: " + str(self.currentCycle) + " Index was not updated: " + str(reservation_item["QK"]) + " in instruction: " + str(instruction["index"]))
-
-            return valid
     def add_instruction_reservation_station(self, instruction):
         value = self.reservation_station.get(instruction["index"])
-        VJ = -1
-        VK = -1
-        QJ = -1
-        QK = -1
+
+        qj = -1
+        qk = -1
 
         if value is None:
-            if self.register_state.get(instruction["dst"]) is None:
-                self.update_register_state(instruction["dst"], instruction["index"])
-                # The dst of this instruction is mapped to a register. Therefore, the instruction has been executed
-                # then that register is ready to be retrieved marked by -1.
+            if self.check_register_state(instruction["src1"]) is not False:
+                qj = self.check_register_state(instruction["src1"])
+            else:
+                qj = instruction["src1"], instruction["index"]
 
-            QJ = (instruction["src1"])
-            QK = (instruction["src2"])
+            if self.check_register_state(instruction["src2"]) is not False:
+                qk = self.check_register_state(instruction["src2"])
+            else:
+                qk = instruction["src2"], instruction["index"]
+
+            self.update_register_state(instruction["dst"], instruction["index"])
 
             self.reservation_station[instruction["index"]] = {
-                "OP": instruction["operation_type"],
-                "VJ": VJ,
-                "VK": VK,
-                "QJ": QJ,
-                "QK": QK
+                "op": instruction["operation_type"],
+                "qj": qj,
+                "qk": qk
             }
 
-    # Need to update to prevent duplicate register values from overwriting
-    # each other.
+    # Need to update to prevent duplicate register values from overwriting each other.
     def update_register_state(self, register, index):
         if register == -1:
             return
         else:
             self.register_state[register] = register, index
+
+    def check_register_state(self, register):
+        if register == -1:
+            return False
+
+        value = self.register_state.get(register)
+
+        if value is None:
+            return False
+        else:
+            return value
 
     def fake_retire(self):
         # Remove instructions
@@ -246,7 +209,8 @@ class Sim:
                 execute_instruction["current_state"] = Sim.WB
                 execute_instruction["WB_duration"] = 1
                 execute_instruction["WB_cycle"] = self.currentCycle + 1
-                self.update_register_state(execute_instruction["dst"], -1)
+                if execute_instruction["index"] == self.check_register_state(execute_instruction["dst"]):
+                    self.update_register_state(execute_instruction["dst"], -1)
                 to_remove.append(execute_instruction)
         for item in to_remove:
             self.execute_list.remove(item)
@@ -254,33 +218,19 @@ class Sim:
         return
 
     def is_ready(self, execute_instruction):
-        src1_is_ready = False
-        src2_is_ready = False
-        dst = self.register_state.get(execute_instruction["dst"])
-        if execute_instruction["src1"] != -1:
-            src1 = self.register_state.get(execute_instruction["src1"])
-            if src1 is not None:
-                if src1[1] == -1 or src1[1] > execute_instruction["index"]:
-                    src1_is_ready = True
-                if dst is not None and (dst[0] == src1[0] and dst[1] == execute_instruction["index"]):
-                    src1_is_ready = True
-            else:
-                src1_is_ready = True
-        else:
-            src1_is_ready = True
+        rs = self.reservation_station[execute_instruction["index"]]
+        src1_ready = False
+        src2_ready = False
 
-        if execute_instruction["src2"] != -1:
-            src2 = self.register_state.get(execute_instruction["src2"])
-            if src2 is not None:
-                if src2[1] == -1 or src2[1] > execute_instruction["index"]:
-                    src2_is_ready = True
-                if dst is not None and (dst[0] == src2[0] and dst[1] == execute_instruction["index"]):
-                    src2_is_ready = True
-            else:
-                src2_is_ready = True
-        else:
-            src2_is_ready = True
-        return src1_is_ready and src2_is_ready
+        if rs is not None:
+            qj = rs["qj"]
+            if qj[1] == execute_instruction["index"] or qj[1] == -1:
+                src1_ready = True
+            qk = rs["qk"]
+            if qk[1] == execute_instruction["index"] or qk[1] == -1:
+                src2_ready = True
+
+        return src1_ready and src2_ready
 
     def issue(self):
         # Issue instructions
@@ -288,7 +238,7 @@ class Sim:
 
         for issue_instruction in temp_list:
             value = self.reservation_station.get(issue_instruction["index"])
-            if value is not None and issue_instruction not in self.execute_list and self.is_ready(issue_instruction):
+            if value is not None and self.is_ready(issue_instruction):
                 self.issue_list.remove(issue_instruction)
                 issue_instruction["execution_timer"] = self.currentCycle + Sim.EXECUTE_CYCLE_LATENCY_DICT[
                     issue_instruction["operation_type"]]
@@ -297,7 +247,6 @@ class Sim:
                 issue_instruction["EX_cycle"] = self.currentCycle + 1
                 self.execute_list.append(issue_instruction)
                 del self.reservation_station[issue_instruction["index"]]
-
         return
 
     def dispatch(self):
@@ -357,17 +306,10 @@ class Sim:
             print(self.register_state)
             print("____Reservation Debug End___")
 
-            for issue_instruction in self.issue_list:
-                if (issue_instruction["index"] == 1136):
-                    print("Instruction is ready: " + str(
-                        self.is_reservation_station_instruction_ready(issue_instruction)))
-
         self.currentCycle = self.currentCycle + 1
 
-        # self.DebugPrintList(self.dispatch_list)
-
         if len(self.dispatch_list) == 0 and len(self.issue_list) == 0 and len(
-                self.execute_list) == 0 and len(self.writeback_list) == 0:
+                self.execute_list) == 0:
             return False
         else:
             return True
@@ -393,8 +335,8 @@ def debug_print_list(self, listToPrint):
     print([i["index"] for i in listToPrint])
 
 
-def read_file(txtFile):
-    file = open(txtFile, "r")
+def read_file(txt_file):
+    file = open(txt_file, "r")
     lines = file.readlines()
     data_string = ""
     for line in lines:
