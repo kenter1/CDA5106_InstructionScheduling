@@ -207,7 +207,6 @@ class Sim:
                 execute_instruction["current_state"] = Sim.WB
                 execute_instruction["WB_duration"] = 1
                 execute_instruction["WB_cycle"] = self.currentCycle + 1
-                # Need to fix this
                 dst = self.check_register_state(execute_instruction["dst"])
                 if dst is not None:
                     if execute_instruction["index"] == dst[1]:
@@ -265,7 +264,8 @@ class Sim:
         temp_list = sorted(self.dispatch_list, key=lambda d: d["tag"])
 
         for dispatch_instruction in temp_list:
-            dispatch_instruction["ID_cycle"] = self.currentCycle
+            if dispatch_instruction["ID_cycle"] == -1:
+                dispatch_instruction["ID_cycle"] = self.currentCycle
             if len(self.issue_list) < self.scheduling_queue_size:
                 if dispatch_instruction["current_state"] == Sim.IF:
                     dispatch_instruction["current_state"] = Sim.ID
@@ -359,14 +359,14 @@ def read_file(txt_file):
 # In[36]:
 
 # Need to add funcationlity that takes in inputs.Need to add funcationlity that takes in inputs.
-data = read_file("val_trace_gcc.txt")
-Simulator = Sim(data, 8, 8)
+data = read_file("val_trace_perl.txt")
+Simulator = Sim(data, 128, 8)
 
 # In[37]:
 
 
 Simulator.main()
-Simulator.validate_file("pipe_8_8_gcc.txt")
+Simulator.validate_file("pipe_128_8_perl.txt")
 
 # In[38]:
 # Simulator.get_formatted_output()
