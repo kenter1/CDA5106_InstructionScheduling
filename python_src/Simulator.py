@@ -173,8 +173,7 @@ class Sim:
 
         rs = ReservationStation(instruction, rs1, rs2, val1, val2)
         self.issue_list.append(rs)
-        if self.check_register_state(instruction["dst"]) is None:
-            self.update_register_state(instruction["dst"], rs)
+        self.update_register_state(instruction["dst"], rs)
 
     def update_register_state(self, register, value):
         if register == -1:
@@ -204,7 +203,10 @@ class Sim:
                 execute_instruction["current_state"] = Sim.WB
                 execute_instruction["WB_duration"] = 1
                 execute_instruction["WB_cycle"] = self.currentCycle + 1
-                if self.check_register_state(execute_instruction["dst"]) is not None:
+                # when instruction executes check remove instructions from register file \
+                # and remove mark as ready to CDB
+                reg = self.check_register_state(execute_instruction["dst"])
+                if reg is not None and reg != -1:
                     del self.register_state[execute_instruction["dst"]]
                 to_remove.append(execute_instruction)
         for item in to_remove:
@@ -213,17 +215,18 @@ class Sim:
     def is_ready(self, rs):
         src1_ready = False
         src2_ready = False
-        rs1 = self.check_register_state(rs.rs1)
-        rs2 = self.check_register_state(rs.rs2)
+        rs1 = self.check_register_state(rs.instruction["src1"])
+        rs2 = self.check_register_state(rs.instruction["src2"])
 
-        if rs.val1 is None:
-            if rs1 is None or rs1 == rs:
+        if rs.val1 is not None:
+            if rs1 is None or rs1 == rs or rs1 == -1:
                 src1_ready = True
         else:
             src1_ready = True
-        if rs.val2 is None:
-            if rs2 is None or rs2 == rs:
-                src1_ready = True
+
+        if rs.val2 is not None:
+            if rs2 is None or rs2 == rs or rs1 == -1:
+                src2_ready = True
         else:
             src2_ready = True
 
