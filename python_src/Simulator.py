@@ -167,7 +167,7 @@ class Sim:
             rs1 = src1
 
         if src2 is None:
-            val1 = instruction["src2"]
+            val2 = instruction["src2"]
         else:
             rs2 = src2
 
@@ -218,13 +218,13 @@ class Sim:
         rs1 = self.check_register_state(rs.instruction["src1"])
         rs2 = self.check_register_state(rs.instruction["src2"])
 
-        if rs.val1 is not None:
+        if rs.val1 is None:
             if rs1 is None or rs1 == rs or rs1 == -1:
                 src1_ready = True
         else:
             src1_ready = True
 
-        if rs.val2 is not None:
+        if rs.val2 is None:
             if rs2 is None or rs2 == rs or rs1 == -1:
                 src2_ready = True
         else:
