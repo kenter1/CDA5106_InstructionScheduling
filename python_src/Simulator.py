@@ -2,7 +2,7 @@
 # coding: utf-8
 
 import sys
-
+from ReservationStation import ReservationStation
 
 class FakeRob:
     def __init__(self, instruction_list_string):
@@ -115,8 +115,8 @@ class Sim:
                           + "} EX{" + str(data["EX_cycle"]) + "," + str(data["EX_duration"])
                           + "} WB{" + str(data["WB_cycle"]) + "," + str(data["WB_duration"]) + "}") + "\n")
 
-        # Close the file
-        output.close()
+        # Close the fe
+        #     il    output.close()
 
 
     def validate_file(self, txt_file):
@@ -152,49 +152,39 @@ class Sim:
     # print("# Wrong FU's", test)
 
     def add_instruction_reservation_station(self, instruction):
-        value = self.reservation_station.get(instruction["index"])
-        rs1 = 0
-        rs2 = 0
-        val1 = 0
-        val2 = 0
-        if value is None:
-            if self.check_register_state(instruction["src1"]) is not None:
-                # Check for existing rs's
-                val1 = self.check_register_state(instruction["src1"])
-            else:
-                val1 = instruction["src1"], instruction["index"]
+        # Pass in instruction to rs. Check and see if register has
+        # operand and if so pass it on to rs. If not pass in rs in the
+        # register to the rs1 or rs2 values.
+        val1 = None
+        val2 = None
+        rs1 = None
+        rs2 = None
+        src1 = self.check_register_state(instruction["src1"])
+        src2 = self.check_register_state(instruction["src2"])
+        if src1 is None:
+            val1 = instruction["src1"]
+        else:
+            rs1 = src1
 
-            if self.check_register_state(instruction["src2"]) is not None:
-                # Check for existing rs's
-                val2 = self.check_register_state(instruction["src2"])
-            else:
-                val2 = instruction["src2"], instruction["index"]
+        if src2 is None:
+            val1 = instruction["src2"]
+        else:
+            rs2 = src2
 
-            register = self.check_register_state(instruction["dst"])
-            if register is not None:
-                if register[1] == -1 or register[1] == instruction["index"]:
-                    self.update_register_state(instruction["dst"], instruction["index"])
-            else:
-                self.update_register_state(instruction["dst"], instruction["index"])
+        rs = ReservationStation(instruction, rs1, rs2, val1, val2)
+        self.issue_list.append(rs)
+        if self.check_register_state(instruction["dst"]) is None:
+            self.update_register_state(instruction["dst"], rs)
 
-            self.reservation_station[instruction["index"]] = {
-                "op": instruction["operation_type"],
-                "rs1": rs1,
-                "rs2": rs1,
-                "val1": val1,
-                "val2": val2
-            }
-
-    # Need to update to prevent duplicate register values from overwriting each other.
-    def update_register_state(self, register, index):
+    def update_register_state(self, register, value):
         if register == -1:
             return
         else:
-            self.register_state[register] = register, index
+            self.register_state[register] = value
 
     def check_register_state(self, register):
         if register == -1:
-            return
+            return -1
 
         value = self.register_state.get(register)
         return value
@@ -214,62 +204,52 @@ class Sim:
                 execute_instruction["current_state"] = Sim.WB
                 execute_instruction["WB_duration"] = 1
                 execute_instruction["WB_cycle"] = self.currentCycle + 1
-                dst = self.check_register_state(execute_instruction["dst"])
-                if dst is not None:
-                    if execute_instruction["index"] == dst[1]:
-                        self.update_register_state(execute_instruction["dst"], -1)
+                if self.check_register_state(execute_instruction["dst"]) is not None:
+                    del self.register_state[execute_instruction["dst"]]
                 to_remove.append(execute_instruction)
         for item in to_remove:
             self.execute_list.remove(item)
 
-        return
-
-    def is_ready(self, execute_instruction):
-        rs = self.reservation_station[execute_instruction["index"]]
+    def is_ready(self, rs):
         src1_ready = False
         src2_ready = False
+        rs1 = self.check_register_state(rs.rs1)
+        rs2 = self.check_register_state(rs.rs2)
 
-        qj = self.check_register_state(rs["qj"][0])
-        qk = self.check_register_state(rs["qk"][0])
-
-        if qj is not None:
-            if qj[1] >= execute_instruction["index"] or qj[1] == -1:
+        if rs.val1 is None:
+            if rs1 is None or rs1 == rs:
                 src1_ready = True
         else:
             src1_ready = True
-        if qk is not None:
-            if qk[1] >= execute_instruction["index"] or qk[1] == -1:
-                src2_ready = True
+        if rs.val2 is None:
+            if rs2 is None or rs2 == rs:
+                src1_ready = True
         else:
+            src2_ready = True
+
+        if rs1 == -1:
+            src1_ready = True
+        if rs2 == -1:
             src2_ready = True
 
         return src1_ready and src2_ready
 
     def issue(self):
         # Issue instructions
-        temp_list = sorted(self.issue_list, key=lambda d: d["tag"])
-
-        for issue_instruction in temp_list:
-            value = self.reservation_station.get(issue_instruction["index"])
-            register = self.check_register_state(issue_instruction["dst"])
-            if register is not None:
-                if register[1] == -1 or register[1] == issue_instruction["index"]:
-                    self.update_register_state(issue_instruction["dst"], issue_instruction["index"])
-            if value is not None and self.is_ready(issue_instruction):
-                self.issue_list.remove(issue_instruction)
-                issue_instruction["execution_timer"] = self.currentCycle + Sim.EXECUTE_CYCLE_LATENCY_DICT[
-                    issue_instruction["operation_type"]]
-                issue_instruction["IS_duration"] = self.currentCycle - issue_instruction["IS_cycle"] + 1
-                issue_instruction["current_state"] = Sim.EX
-                issue_instruction["EX_cycle"] = self.currentCycle + 1
-                self.execute_list.append(issue_instruction)
-                del self.reservation_station[issue_instruction["index"]]
-        return
+        temp_list = sorted(self.issue_list, key=lambda d: d.rs_id)
+        for rs in temp_list:
+            if self.is_ready(rs):
+                self.issue_list.remove(rs)
+                rs.instruction["execution_timer"] = self.currentCycle + Sim.EXECUTE_CYCLE_LATENCY_DICT[
+                    rs.instruction["operation_type"]]
+                rs.instruction["IS_duration"] = self.currentCycle - rs.instruction["IS_cycle"] + 1
+                rs.instruction["current_state"] = Sim.EX
+                rs.instruction["EX_cycle"] = self.currentCycle + 1
+                self.execute_list.append(rs.instruction)
 
     def dispatch(self):
         # Dispatch instructions
         temp_list = sorted(self.dispatch_list, key=lambda d: d["tag"])
-
         for dispatch_instruction in temp_list:
             if dispatch_instruction["ID_cycle"] == -1:
                 dispatch_instruction["ID_cycle"] = self.currentCycle
@@ -279,10 +259,7 @@ class Sim:
                     dispatch_instruction["ID_duration"] = self.currentCycle - dispatch_instruction["ID_cycle"] + 1
                     self.dispatch_list.remove(dispatch_instruction)
                     dispatch_instruction["IS_cycle"] = self.currentCycle + 1
-                    self.issue_list.append(dispatch_instruction)
                     self.add_instruction_reservation_station(dispatch_instruction)
-        return
-
     def fetch(self):
         # Fetch instructions
         while len(self.dispatch_list) < self.peak_fetch_dispatch_issue_rate:
@@ -296,10 +273,7 @@ class Sim:
                 self.dispatch_list.append(instruction_fetched)
                 # Possilby create a dispatch queue counter
 
-        return
-
     def advance_cycle(self):
-
         debug_cycle = 2
         self.epoch += 1
         if self.currentCycle == debug_cycle:
