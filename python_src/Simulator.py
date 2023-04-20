@@ -219,30 +219,14 @@ class Sim:
                 issue_rs.rs1 = None
             if issue_rs.rs2 == rs:
                 issue_rs.rs2 = None
-            self.issue_list.remove(issue_rs)
-            self.issue_list.append(issue_rs)
 
     def is_ready(self, rs):
         src1_ready = False
         src2_ready = False
-        rs1 = self.check_register_state(rs.instruction["src1"])
-        rs2 = self.check_register_state(rs.instruction["src2"])
 
-        if rs.val1 is None:
-            if rs1 is None or rs1 == rs or rs1 == -1:
-                src1_ready = True
-        else:
+        if rs.rs1 is None or rs.rs1 == -1 or rs.val1 is not None:
             src1_ready = True
-
-        if rs.val2 is None:
-            if rs2 is None or rs2 == rs or rs1 == -1:
-                src2_ready = True
-        else:
-            src2_ready = True
-
-        if rs1 == -1:
-            src1_ready = True
-        if rs2 == -1:
+        if rs.rs2 is None or rs.rs2 == -1 or rs.val2 is not None:
             src2_ready = True
 
         return src1_ready and src2_ready
