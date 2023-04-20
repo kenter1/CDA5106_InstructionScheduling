@@ -1,8 +1,7 @@
 #!/usr/bin/env python
 # coding: utf-8
-
-import sys
 from ReservationStation import ReservationStation
+
 
 class FakeRob:
     def __init__(self, instruction_list_string):
@@ -118,7 +117,6 @@ class Sim:
         # Close the fe
         #     il    output.close()
 
-
     def validate_file(self, txt_file):
         file = open(txt_file, "r")
         lines = file.readlines()
@@ -139,13 +137,13 @@ class Sim:
                         + "} EX{" + str(data["EX_cycle"]) + "," + str(data["EX_duration"])
                         + "} WB{" + str(data["WB_cycle"]) + "," + str(data["WB_duration"]) + "}")
 
-            if (our_line != lines[index].strip()):
+            if our_line != lines[index].strip():
                 print("Ours")
                 print(our_line)
                 print("Expected")
                 print(lines[index].strip())
                 test += 1
-                if test == 5:
+                if test == 7:
                     break
             index = index + 1
 
@@ -197,20 +195,32 @@ class Sim:
     def execute(self):
         # Execute instructions
         to_remove = []
-        for execute_instruction in self.execute_list:
-            if execute_instruction["execution_timer"] == self.currentCycle:
-                execute_instruction["EX_duration"] = self.currentCycle - execute_instruction["EX_cycle"] + 1
-                execute_instruction["current_state"] = Sim.WB
-                execute_instruction["WB_duration"] = 1
-                execute_instruction["WB_cycle"] = self.currentCycle + 1
-                # when instruction executes check remove instructions from register file \
-                # and remove mark as ready to CDB
-                reg = self.check_register_state(execute_instruction["dst"])
+        for rs in self.execute_list:
+            if rs.instruction["execution_timer"] == self.currentCycle:
+                rs.instruction["EX_duration"] = self.currentCycle - rs.instruction["EX_cycle"] + 1
+                rs.instruction["current_state"] = Sim.WB
+                rs.instruction["WB_duration"] = 1
+                rs.instruction["WB_cycle"] = self.currentCycle + 1
+                # Alert reservation stations
+                self.update_reservation_stations(rs)
+                # When instruction executes check remove instructions from register file
+                reg = self.check_register_state(rs.instruction["dst"])
                 if reg is not None and reg != -1:
-                    del self.register_state[execute_instruction["dst"]]
-                to_remove.append(execute_instruction)
+                    del self.register_state[rs.instruction["dst"]]
+                to_remove.append(rs)
         for item in to_remove:
             self.execute_list.remove(item)
+
+    def update_reservation_stations(self, rs):
+        # If a rs1 matches a rs in an issue list
+        # and a rs2 matches a rs in an issue list
+        for issue_rs in self.issue_list:
+            if issue_rs.rs1 == rs:
+                issue_rs.rs1 = None
+            if issue_rs.rs2 == rs:
+                issue_rs.rs2 = None
+            self.issue_list.remove(issue_rs)
+            self.issue_list.append(issue_rs)
 
     def is_ready(self, rs):
         src1_ready = False
@@ -248,7 +258,7 @@ class Sim:
                 rs.instruction["IS_duration"] = self.currentCycle - rs.instruction["IS_cycle"] + 1
                 rs.instruction["current_state"] = Sim.EX
                 rs.instruction["EX_cycle"] = self.currentCycle + 1
-                self.execute_list.append(rs.instruction)
+                self.execute_list.append(rs)
 
     def dispatch(self):
         # Dispatch instructions
@@ -263,6 +273,7 @@ class Sim:
                     self.dispatch_list.remove(dispatch_instruction)
                     dispatch_instruction["IS_cycle"] = self.currentCycle + 1
                     self.add_instruction_reservation_station(dispatch_instruction)
+
     def fetch(self):
         # Fetch instructions
         while len(self.dispatch_list) < self.peak_fetch_dispatch_issue_rate:
@@ -318,7 +329,7 @@ class Sim:
             self.dispatch()
             self.fetch()
 
-            if (self.advance_cycle() == False):
+            if not self.advance_cycle():
                 print("End Of Sim")
                 break
             epoch += 1
@@ -326,8 +337,8 @@ class Sim:
 
 # In[27]:
 
-def debug_print_list(self, listToPrint):
-    print([i["index"] for i in listToPrint])
+def debug_print_list(list_to_print):
+    print([i["index"] for i in list_to_print])
 
 
 def read_file(txt_file):
