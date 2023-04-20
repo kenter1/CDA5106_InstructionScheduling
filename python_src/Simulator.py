@@ -158,7 +158,13 @@ class Sim:
         rs1 = None
         rs2 = None
         src1 = self.check_register_state(instruction["src1"])
-        src2 = self.check_register_state(instruction["src2"])
+        if src1 is None:
+            src1 = self.check_reservation_stations(instruction["src1"])
+
+        src2 = self.check_reservation_stations(instruction["src2"])
+        if src2 is None:
+            src2 = self.check_register_state(instruction["src2"])
+
         if src1 is None:
             val1 = instruction["src1"]
         else:
@@ -220,6 +226,15 @@ class Sim:
             if issue_rs.rs2 == rs:
                 issue_rs.rs2 = None
 
+    def check_reservation_stations(self, operand):
+        # If a rs1 matches a rs in an issue list
+        # and a rs2 matches a rs in an issue list
+        if operand == -1:
+            return None
+        for issue_rs in self.issue_list:
+            if issue_rs.instruction["dst"] == operand:
+                return issue_rs
+
     def is_ready(self, rs):
         src1_ready = False
         src2_ready = False
@@ -246,7 +261,7 @@ class Sim:
 
     def dispatch(self):
         # Dispatch instructions
-        temp_list = sorted(self.dispatch_list, key=lambda d: d["tag"])
+        temp_list = sorted(self.dispatch_list, key=lambda d: d["index"])
         for dispatch_instruction in temp_list:
             if dispatch_instruction["ID_cycle"] == -1:
                 dispatch_instruction["ID_cycle"] = self.currentCycle
