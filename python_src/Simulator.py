@@ -68,7 +68,6 @@ class Sim:
         self.issue_list = []
         self.execute_list = []
         self.register_state = {}
-        self.reservation_station = {}
         self.epoch = 0
 
     def print_list(self, state_list):
@@ -147,7 +146,7 @@ class Sim:
                     break
             index = index + 1
 
-    # print("# Wrong FU's", test)
+        #print("# Wrong FU's", test)
 
     def add_instruction_reservation_station(self, instruction):
         # Pass in instruction to rs. Check and see if register has
@@ -157,13 +156,10 @@ class Sim:
         val2 = None
         rs1 = None
         rs2 = None
-        src1 = self.check_register_state(instruction["src1"])
-        if src1 is None:
-            src1 = self.check_reservation_stations(instruction["src1"])
 
+        # Get RS with the highest index
+        src1 = self.check_reservation_stations(instruction["src1"])
         src2 = self.check_reservation_stations(instruction["src2"])
-        if src2 is None:
-            src2 = self.check_register_state(instruction["src2"])
 
         if src1 is None:
             val1 = instruction["src1"]
@@ -229,11 +225,14 @@ class Sim:
     def check_reservation_stations(self, operand):
         # If a rs1 matches a rs in an issue list
         # and a rs2 matches a rs in an issue list
-        if operand == -1:
-            return None
-        for issue_rs in self.issue_list:
-            if issue_rs.instruction["dst"] == operand:
-                return issue_rs
+        issue_ex_list = self.execute_list + self.issue_list
+        if len(issue_ex_list) > 0:
+            temp_list = sorted(issue_ex_list, key=lambda d: d.rs_id, reverse=True)
+            if operand == -1:
+                return None
+            for issue_rs in temp_list:
+                if issue_rs.instruction["dst"] == operand:
+                    return issue_rs
 
     def is_ready(self, rs):
         src1_ready = False
@@ -294,7 +293,6 @@ class Sim:
             # print("Register State")
             # print(self.register_state)
             print("Execution Count: " + str(len(self.execute_list)))
-            print("Reservation Count: " + str(len(self.reservation_station.keys())))
             print("Issue Count: " + str(len(self.issue_list)))
             print("Dispatch Count: " + str(len(self.dispatch_list)))
             # print("Schedule Window Count: " + str(len(self.re)))
@@ -306,7 +304,6 @@ class Sim:
             print("____Reservation Debug___")
             print("Current Cycle: " + str(self.currentCycle))
             print("Reservation Station")
-            print(self.reservation_station)
             print("Register State")
             print(self.register_state)
             print("____Reservation Debug End___")
@@ -353,14 +350,14 @@ def read_file(txt_file):
 # In[36]:
 
 # Need to add funcationlity that takes in inputs.Need to add funcationlity that takes in inputs.
-data = read_file("val_trace_perl.txt")
-Simulator = Sim(data, 128, 8)
+data = read_file("val_trace_gcc.txt")
+Simulator = Sim(data, 8, 8)
 
 # In[37]:
 
 
 Simulator.main()
-Simulator.validate_file("pipe_128_8_perl.txt")
+Simulator.validate_file("pipe_8_8_gcc.txt")
 
 # In[38]:
 # Simulator.get_formatted_output()
