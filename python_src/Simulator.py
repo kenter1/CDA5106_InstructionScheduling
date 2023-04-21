@@ -204,7 +204,7 @@ class Sim:
                 execute_instruction["WB_duration"] = 1
                 execute_instruction["WB_cycle"] = self.currentCycle + 1
                 # when instruction executes check remove instructions from register file \
-                # and remove mark as ready to CDB
+                # and find rs in issue_list using rs_id and update operands or something.
                 reg = self.check_register_state(execute_instruction["dst"])
                 if reg is not None and reg != -1:
                     del self.register_state[execute_instruction["dst"]]
