@@ -1,8 +1,7 @@
 #!/usr/bin/env python
 # coding: utf-8
-
-import sys
 from ReservationStation import ReservationStation
+
 
 class FakeRob:
     def __init__(self, instruction_list_string):
@@ -69,7 +68,6 @@ class Sim:
         self.issue_list = []
         self.execute_list = []
         self.register_state = {}
-        self.reservation_station = {}
         self.epoch = 0
 
     def print_list(self, state_list):
@@ -118,7 +116,6 @@ class Sim:
         # Close the fe
         #     il    output.close()
 
-
     def validate_file(self, txt_file):
         file = open(txt_file, "r")
         lines = file.readlines()
@@ -139,17 +136,17 @@ class Sim:
                         + "} EX{" + str(data["EX_cycle"]) + "," + str(data["EX_duration"])
                         + "} WB{" + str(data["WB_cycle"]) + "," + str(data["WB_duration"]) + "}")
 
-            if (our_line != lines[index].strip()):
+            if our_line != lines[index].strip():
                 print("Ours")
                 print(our_line)
                 print("Expected")
                 print(lines[index].strip())
                 test += 1
-                if test == 5:
+                if test == 7:
                     break
             index = index + 1
 
-    # print("# Wrong FU's", test)
+        #print("# Wrong FU's", test)
 
     def add_instruction_reservation_station(self, instruction):
         # Pass in instruction to rs. Check and see if register has
@@ -159,8 +156,11 @@ class Sim:
         val2 = None
         rs1 = None
         rs2 = None
-        src1 = self.check_register_state(instruction["src1"])
-        src2 = self.check_register_state(instruction["src2"])
+
+        # Get RS with the highest index
+        src1 = self.check_reservation_stations(instruction["src1"])
+        src2 = self.check_reservation_stations(instruction["src2"])
+
         if src1 is None:
             val1 = instruction["src1"]
         else:
@@ -197,42 +197,50 @@ class Sim:
     def execute(self):
         # Execute instructions
         to_remove = []
-        for execute_instruction in self.execute_list:
-            if execute_instruction["execution_timer"] == self.currentCycle:
-                execute_instruction["EX_duration"] = self.currentCycle - execute_instruction["EX_cycle"] + 1
-                execute_instruction["current_state"] = Sim.WB
-                execute_instruction["WB_duration"] = 1
-                execute_instruction["WB_cycle"] = self.currentCycle + 1
-                # when instruction executes check remove instructions from register file \
-                # and find rs in issue_list using rs_id and update operands or something.
-                reg = self.check_register_state(execute_instruction["dst"])
+        for rs in self.execute_list:
+            if rs.instruction["execution_timer"] == self.currentCycle:
+                rs.instruction["EX_duration"] = self.currentCycle - rs.instruction["EX_cycle"] + 1
+                rs.instruction["current_state"] = Sim.WB
+                rs.instruction["WB_duration"] = 1
+                rs.instruction["WB_cycle"] = self.currentCycle + 1
+                # Alert reservation stations
+                self.update_reservation_stations(rs)
+                # When instruction executes check remove instructions from register file
+                reg = self.check_register_state(rs.instruction["dst"])
                 if reg is not None and reg != -1:
-                    del self.register_state[execute_instruction["dst"]]
-                to_remove.append(execute_instruction)
+                    del self.register_state[rs.instruction["dst"]]
+                to_remove.append(rs)
         for item in to_remove:
             self.execute_list.remove(item)
+
+    def update_reservation_stations(self, rs):
+        # If a rs1 matches a rs in an issue list
+        # and a rs2 matches a rs in an issue list
+        for issue_rs in self.issue_list:
+            if issue_rs.rs1 == rs:
+                issue_rs.rs1 = None
+            if issue_rs.rs2 == rs:
+                issue_rs.rs2 = None
+
+    def check_reservation_stations(self, operand):
+        # If a rs1 matches a rs in an issue list
+        # and a rs2 matches a rs in an issue list
+        issue_ex_list = self.execute_list + self.issue_list
+        if len(issue_ex_list) > 0:
+            temp_list = sorted(issue_ex_list, key=lambda d: d.rs_id, reverse=True)
+            if operand == -1:
+                return None
+            for issue_rs in temp_list:
+                if issue_rs.instruction["dst"] == operand:
+                    return issue_rs
 
     def is_ready(self, rs):
         src1_ready = False
         src2_ready = False
-        rs1 = self.check_register_state(rs.instruction["src1"])
-        rs2 = self.check_register_state(rs.instruction["src2"])
 
-        if rs.val1 is None:
-            if rs1 is None or rs1 == rs or rs1 == -1:
-                src1_ready = True
-        else:
+        if rs.rs1 is None or rs.rs1 == -1 or rs.val1 is not None:
             src1_ready = True
-
-        if rs.val2 is None:
-            if rs2 is None or rs2 == rs or rs1 == -1:
-                src2_ready = True
-        else:
-            src2_ready = True
-
-        if rs1 == -1:
-            src1_ready = True
-        if rs2 == -1:
+        if rs.rs2 is None or rs.rs2 == -1 or rs.val2 is not None:
             src2_ready = True
 
         return src1_ready and src2_ready
@@ -248,11 +256,11 @@ class Sim:
                 rs.instruction["IS_duration"] = self.currentCycle - rs.instruction["IS_cycle"] + 1
                 rs.instruction["current_state"] = Sim.EX
                 rs.instruction["EX_cycle"] = self.currentCycle + 1
-                self.execute_list.append(rs.instruction)
+                self.execute_list.append(rs)
 
     def dispatch(self):
         # Dispatch instructions
-        temp_list = sorted(self.dispatch_list, key=lambda d: d["tag"])
+        temp_list = sorted(self.dispatch_list, key=lambda d: d["index"])
         for dispatch_instruction in temp_list:
             if dispatch_instruction["ID_cycle"] == -1:
                 dispatch_instruction["ID_cycle"] = self.currentCycle
@@ -263,6 +271,7 @@ class Sim:
                     self.dispatch_list.remove(dispatch_instruction)
                     dispatch_instruction["IS_cycle"] = self.currentCycle + 1
                     self.add_instruction_reservation_station(dispatch_instruction)
+
     def fetch(self):
         # Fetch instructions
         while len(self.dispatch_list) < self.peak_fetch_dispatch_issue_rate:
@@ -284,7 +293,6 @@ class Sim:
             # print("Register State")
             # print(self.register_state)
             print("Execution Count: " + str(len(self.execute_list)))
-            print("Reservation Count: " + str(len(self.reservation_station.keys())))
             print("Issue Count: " + str(len(self.issue_list)))
             print("Dispatch Count: " + str(len(self.dispatch_list)))
             # print("Schedule Window Count: " + str(len(self.re)))
@@ -296,7 +304,6 @@ class Sim:
             print("____Reservation Debug___")
             print("Current Cycle: " + str(self.currentCycle))
             print("Reservation Station")
-            print(self.reservation_station)
             print("Register State")
             print(self.register_state)
             print("____Reservation Debug End___")
@@ -318,7 +325,7 @@ class Sim:
             self.dispatch()
             self.fetch()
 
-            if (self.advance_cycle() == False):
+            if not self.advance_cycle():
                 print("End Of Sim")
                 break
             epoch += 1
@@ -326,8 +333,8 @@ class Sim:
 
 # In[27]:
 
-def debug_print_list(self, listToPrint):
-    print([i["index"] for i in listToPrint])
+def debug_print_list(list_to_print):
+    print([i["index"] for i in list_to_print])
 
 
 def read_file(txt_file):
@@ -343,14 +350,14 @@ def read_file(txt_file):
 # In[36]:
 
 # Need to add funcationlity that takes in inputs.Need to add funcationlity that takes in inputs.
-data = read_file("val_trace_perl.txt")
-Simulator = Sim(data, 128, 8)
+data = read_file("val_trace_gcc.txt")
+Simulator = Sim(data, 8, 8)
 
 # In[37]:
 
 
 Simulator.main()
-Simulator.validate_file("pipe_128_8_perl.txt")
+Simulator.validate_file("pipe_8_8_gcc.txt")
 
 # In[38]:
 # Simulator.get_formatted_output()
