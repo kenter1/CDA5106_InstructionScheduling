@@ -353,18 +353,22 @@ class Sim:
                 else:
                     self.fetch_list.append(instruction_fetched)
 
-        maxSendCount = min(self.peak_fetch_dispatch_issue_rate,  (self.peak_fetch_dispatch_issue_rate) * 2 - len(self.dispatch_list)) 
-        
+        maxSendCount = min(self.peak_fetch_dispatch_issue_rate,  (self.peak_fetch_dispatch_issue_rate) * 2 - len(self.dispatch_list))
+        duplicates = []
+
         for i in range(0, maxSendCount):
+            temp = []
             if len(self.fetch_list) > 0:
                 instruction_fetched = self.fetch_list[0]
+                temp.append(instruction_fetched["index"])
+                if instruction_fetched == temp.pop():
+                    duplicates.append(instruction_fetched)
+                # if duplicates # doesn't match then create checkpoint
                 self.dispatch_list.append(instruction_fetched)
                 instruction_fetched["IF_cycle"] = self.currentCycle
                 instruction_fetched["current_state"] = Sim.IF
                 instruction_fetched["IF_duration"] = 1
                 self.fetch_list.remove(instruction_fetched)
-                
-
                 
         return
 
@@ -410,3 +414,6 @@ if __name__ == "__main__":
     simulator = Sim(data,S,N)
     simulator.Main()
     simulator.GetFormattedOutput()
+
+    # 1. Implement
+    # 2. Make sure it works even if they aren't running it in ErrorDection Mode.
