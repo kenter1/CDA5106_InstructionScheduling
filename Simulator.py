@@ -146,7 +146,8 @@ class Sim:
        
     
     def DeleteFromReservationStation(self, instruction):
-        del self.reservation_station[instruction["index"]]
+        if self.reservation_station.get(instruction["index"]) is not None:
+            del self.reservation_station[instruction["index"]]
         
         #registerValue = self.CheckRegisterState(instruction["dst"])
         #if registerValue != False and registerValue == instruction["index"]:
@@ -346,8 +347,12 @@ class Sim:
             if instruction_fetched == None:
                 break
             else:
-                self.fetch_list.append(instruction_fetched)
-                
+                if (isErrorDetectionMode):
+                    self.fetch_list.append(instruction_fetched)
+                    self.fetch_list.append(instruction_fetched)
+                else:
+                    self.fetch_list.append(instruction_fetched)
+
         maxSendCount = min(self.peak_fetch_dispatch_issue_rate,  (self.peak_fetch_dispatch_issue_rate) * 2 - len(self.dispatch_list)) 
         
         for i in range(0, maxSendCount):
@@ -397,8 +402,11 @@ if __name__ == "__main__":
     S = int(sys.argv[1])
     N = int(sys.argv[2])
     filename = sys.argv[3]
+    isErrorDetectionMode = sys.argv[4]
     data = ReadFile(filename)
+    if isErrorDetectionMode is None:
+        isErrorDetectionMode = False
+
     simulator = Sim(data,S,N)
-    
     simulator.Main()
     simulator.GetFormattedOutput()
