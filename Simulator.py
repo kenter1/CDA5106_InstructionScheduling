@@ -408,7 +408,6 @@ if __name__ == "__main__":
         N = [1, 2, 4, 8]
         files = ['python_src/val_trace_gcc.txt', 'python_src/val_trace_perl.txt']
 
-        # Gcc graph
         for file in files:
             for n in N:
                 IPC = []
