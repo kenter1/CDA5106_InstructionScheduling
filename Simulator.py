@@ -418,7 +418,7 @@ if __name__ == "__main__":
                 instruction_count = len(simulator.fakeRob.fake_rob_queue) - 1
                 cycle_count = simulator.currentCycle
                 IPC.append(instruction_count / cycle_count)
-                plt.title('gcc, N = ', n)
+                plt.title('gcc, N = ' + str(n))
                 plt.plot(S, IPC)
 
         default_x_ticks = range(len(S))
@@ -435,7 +435,7 @@ if __name__ == "__main__":
                 instruction_count = len(simulator.fakeRob.fake_rob_queue) - 1
                 cycle_count = simulator.currentCycle
                 IPC.append(instruction_count / cycle_count)
-                plt.title('perl, N = ', n)
+                plt.title('perl, N = ' + str(n))
                 plt.plot(S, IPC)
 
         plt.show()
