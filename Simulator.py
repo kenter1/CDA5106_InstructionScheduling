@@ -418,7 +418,7 @@ if __name__ == "__main__":
                     simulator.Main()
                     instruction_count = len(simulator.fakeRob.fake_rob_queue) - 1
                     cycle_count = simulator.currentCycle
-                    IPC.append(instruction_count / cycle_count)
+                    IPC.append(round((instruction_count / cycle_count), 2))
                 default_x_ticks = S
                 default_y_ticks = IPC
                 if file == files[0]:
@@ -427,6 +427,10 @@ if __name__ == "__main__":
                     plt.title("perl")
                 plt.xlabel('S')
                 plt.ylabel('IPC')
+                plt.xticks(default_x_ticks, S)
                 plt.plot(S, IPC, label='N=' + str(n))
                 plt.legend(loc='upper left')
+                for i, txt in enumerate(IPC):
+                    plt.annotate(txt, (S[i], round(IPC[i], 2)))
+
             plt.show()
