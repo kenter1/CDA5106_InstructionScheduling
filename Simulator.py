@@ -406,37 +406,27 @@ if __name__ == "__main__":
     else:
         S = [8, 16, 32, 64, 128]
         N = [1, 2, 4, 8]
-        IPC = []
+        files = ['python_src/val_trace_gcc.txt'] #, 'python_src/val_trace_gcc.txt']
 
         # Gcc graph
-        for n in N:
-            for s in S:
-                filename = 'python_src/val_trace_gcc.txt'
-                data = ReadFile(filename)
-                simulator = Sim(data, s, n)
-                simulator.Main()
-                instruction_count = len(simulator.fakeRob.fake_rob_queue) - 1
-                cycle_count = simulator.currentCycle
-                IPC.append(instruction_count / cycle_count)
-                plt.title('gcc, N = ' + str(n))
-                plt.plot(S, IPC)
-
-        default_x_ticks = range(len(S))
-        default_y_ticks = range(len(IPC))
-        plt.show()
-
-        # Perl graph
-        for n in N:
-            for s in S:
-                filename = 'python_src/val_trace_perl.txt'
-                data = ReadFile(filename)
-                simulator = Sim(data, s, n)
-                simulator.Main()
-                instruction_count = len(simulator.fakeRob.fake_rob_queue) - 1
-                cycle_count = simulator.currentCycle
-                IPC.append(instruction_count / cycle_count)
-                plt.title('perl, N = ' + str(n))
-                plt.plot(S, IPC)
-
-        plt.show()
-
+        for file in files:
+            for n in N:
+                IPC = []
+                for s in S:
+                    data = ReadFile(file)
+                    simulator = Sim(data, s, n)
+                    simulator.Main()
+                    instruction_count = len(simulator.fakeRob.fake_rob_queue) - 1
+                    cycle_count = simulator.currentCycle
+                    IPC.append(instruction_count / cycle_count)
+                default_x_ticks = S
+                default_y_ticks = IPC
+                if file == files[0]:
+                    plt.title("gcc")
+                else:
+                    plt.title("perl")
+                plt.xlabel('S')
+                plt.ylabel('IPC')
+                plt.plot(S, IPC, label='N=' + str(n))
+                plt.legend(loc='upper left')
+            plt.show()
