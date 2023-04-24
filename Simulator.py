@@ -408,15 +408,35 @@ if __name__ == "__main__":
         N = [1, 2, 4, 8]
         IPC = []
 
-        filename = 'python_src/val_trace_gcc.txt'
-        data = ReadFile(filename)
-        simulator = Sim(data, S, N)
-        simulator.Main()
-        instruction_count = len(simulator.fakeRob.fake_rob_queue) - 1
-        cycle_count = simulator.currentCycle
-        IPC.append(instruction_count / cycle_count)
+        # Gcc graph
+        for n in N:
+            for s in S:
+                filename = 'python_src/val_trace_gcc.txt'
+                data = ReadFile(filename)
+                simulator = Sim(data, S, N)
+                simulator.Main()
+                instruction_count = len(simulator.fakeRob.fake_rob_queue) - 1
+                cycle_count = simulator.currentCycle
+                IPC.append(instruction_count / cycle_count)
+                plt.title('gcc, N = ', n)
+                plt.plot(S, IPC)
 
         default_x_ticks = range(len(S))
         default_y_ticks = range(len(IPC))
-        plt.plot(S, IPC)
         plt.show()
+
+        # Perl graph
+        for n in N:
+            for s in S:
+                filename = 'python_src/val_trace_perl.txt'
+                data = ReadFile(filename)
+                simulator = Sim(data, S, N)
+                simulator.Main()
+                instruction_count = len(simulator.fakeRob.fake_rob_queue) - 1
+                cycle_count = simulator.currentCycle
+                IPC.append(instruction_count / cycle_count)
+                plt.title('perl, N = ', n)
+                plt.plot(S, IPC)
+
+        plt.show()
+
