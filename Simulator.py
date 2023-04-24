@@ -406,7 +406,7 @@ if __name__ == "__main__":
     else:
         S = [8, 16, 32, 64, 128]
         N = [1, 2, 4, 8]
-        files = ['python_src/val_trace_gcc.txt'] #, 'python_src/val_trace_gcc.txt']
+        files = ['python_src/val_trace_gcc.txt', 'python_src/val_trace_perl.txt']
 
         # Gcc graph
         for file in files:
