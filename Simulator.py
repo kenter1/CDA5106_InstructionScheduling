@@ -1,5 +1,5 @@
 import sys
-
+import matplotlib.pyplot as plt
 class FakeROB:
 
     def __init__(self, instruction_list_string):
@@ -394,11 +394,29 @@ def ReadFile(txtFile):
     return data_string + "FFFFF -1 -1 -1 -1\n"
 
 if __name__ == "__main__":
-    S = int(sys.argv[1])
-    N = int(sys.argv[2])
-    filename = sys.argv[3]
-    data = ReadFile(filename)
-    simulator = Sim(data,S,N)
-    
-    simulator.Main()
-    simulator.GetFormattedOutput()
+    if len(sys.argv) == 3:
+        S = int(sys.argv[1])
+        N = int(sys.argv[2])
+        filename = sys.argv[3]
+        data = ReadFile(filename)
+        simulator = Sim(data,S,N)
+
+        simulator.Main()
+        simulator.GetFormattedOutput()
+    else:
+        S = [8, 16, 32, 64, 128]
+        N = [1, 2, 4, 8]
+        IPC = []
+
+        filename = 'python_src/val_trace_gcc.txt'
+        data = ReadFile(filename)
+        simulator = Sim(data, S, N)
+        simulator.Main()
+        instruction_count = len(simulator.fakeRob.fake_rob_queue) - 1
+        cycle_count = simulator.currentCycle
+        IPC.append(instruction_count / cycle_count)
+
+        default_x_ticks = range(len(S))
+        default_y_ticks = range(len(IPC))
+        plt.plot(S, IPC)
+        plt.show()
