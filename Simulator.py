@@ -413,7 +413,7 @@ if __name__ == "__main__":
             for s in S:
                 filename = 'python_src/val_trace_gcc.txt'
                 data = ReadFile(filename)
-                simulator = Sim(data, S, N)
+                simulator = Sim(data, s, n)
                 simulator.Main()
                 instruction_count = len(simulator.fakeRob.fake_rob_queue) - 1
                 cycle_count = simulator.currentCycle
@@ -430,7 +430,7 @@ if __name__ == "__main__":
             for s in S:
                 filename = 'python_src/val_trace_perl.txt'
                 data = ReadFile(filename)
-                simulator = Sim(data, S, N)
+                simulator = Sim(data, s, n)
                 simulator.Main()
                 instruction_count = len(simulator.fakeRob.fake_rob_queue) - 1
                 cycle_count = simulator.currentCycle
