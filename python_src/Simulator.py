@@ -49,6 +49,96 @@ class FakeRob:
             return None
 
 
+def is_ready(rs):
+    src1_ready = False
+    src2_ready = False
+
+    if rs.rs1 is None or rs.rs1 == -1 or rs.val1 is not None:
+        src1_ready = True
+    if rs.rs2 is None or rs.rs2 == -1 or rs.val2 is not None:
+        src2_ready = True
+
+    return src1_ready and src2_ready
+
+
+def print_list(state_list):
+    for state in state_list:
+        print(state)
+
+
+def get_formatted_output():
+    output_array = []
+    output = open("../src/output.txt", "w")
+    Simulator.fakeRob.fake_rob_queue.pop()
+    for instr in Simulator.fakeRob.fake_rob_queue:
+        dst_temp = int(instr["dst"])
+        src1_temp = int(instr["src1"])
+        src2_temp = int(instr["src2"])
+
+        output_array.append((str(instr["index"] - 1) +
+                             " fu{" + str(instr["operation_type"])
+                             + "} src{" + str(src1_temp) + "," + str(src2_temp)
+                             + "} dst{" + str(dst_temp)
+                             + "} IF{" + str(instr["IF_cycle"]) + "," + str(instr["IF_duration"])
+                             + "} ID{" + str(instr["ID_cycle"]) + "," + str(instr["ID_duration"])
+                             + "} IS{" + str(instr["IS_cycle"]) + "," + str(instr["IS_duration"])
+                             + "} EX{" + str(instr["EX_cycle"]) + "," + str(instr["EX_duration"])
+                             + "} WB{" + str(instr["WB_cycle"]) + "," + str(instr["WB_duration"]) + "}"))
+
+        print(str(instr["index"] - 1) +
+              " fu{" + str(instr["operation_type"])
+              + "} src{" + str(src1_temp) + "," + str(src2_temp)
+              + "} dst{" + str(dst_temp)
+              + "} IF{" + str(instr["IF_cycle"]) + "," + str(instr["IF_duration"])
+              + "} ID{" + str(instr["ID_cycle"]) + "," + str(instr["ID_duration"])
+              + "} IS{" + str(instr["IS_cycle"]) + "," + str(instr["IS_duration"])
+              + "} EX{" + str(instr["EX_cycle"]) + "," + str(instr["EX_duration"])
+              + "} WB{" + str(instr["WB_cycle"]) + "," + str(instr["WB_duration"]) + "}")
+
+        output.write((str(instr["index"] - 1) +
+                      " fu{" + str(instr["operation_type"])
+                      + "} src{" + str(src1_temp) + "," + str(src2_temp)
+                      + "} dst{" + str(dst_temp)
+                      + "} IF{" + str(instr["IF_cycle"]) + "," + str(instr["IF_duration"])
+                      + "} ID{" + str(instr["ID_cycle"]) + "," + str(instr["ID_duration"])
+                      + "} IS{" + str(instr["IS_cycle"]) + "," + str(instr["IS_duration"])
+                      + "} EX{" + str(instr["EX_cycle"]) + "," + str(instr["EX_duration"])
+                      + "} WB{" + str(instr["WB_cycle"]) + "," + str(instr["WB_duration"]) + "}") + "\n")
+
+
+def validate_file(txt_file):
+    file = open(txt_file, "r")
+    lines = file.readlines()
+    index = 0
+    test = 0
+    for instr in Simulator.fakeRob.fake_rob_queue:
+        dst_temp = int(instr["dst"])
+        src1_temp = int(instr["src1"])
+        src2_temp = int(instr["src2"])
+
+        our_line = (str(instr["index"]) +
+                    " fu{" + str(instr["operation_type"])
+                    + "} src{" + str(src1_temp) + "," + str(src2_temp)
+                    + "} dst{" + str(dst_temp)
+                    + "} IF{" + str(instr["IF_cycle"]) + "," + str(instr["IF_duration"])
+                    + "} ID{" + str(instr["ID_cycle"]) + "," + str(instr["ID_duration"])
+                    + "} IS{" + str(instr["IS_cycle"]) + "," + str(instr["IS_duration"])
+                    + "} EX{" + str(instr["EX_cycle"]) + "," + str(instr["EX_duration"])
+                    + "} WB{" + str(instr["WB_cycle"]) + "," + str(instr["WB_duration"]) + "}")
+
+        if our_line != lines[index].strip():
+            print("Ours")
+            print(our_line)
+            print("Expected")
+            print(lines[index].strip())
+            test += 1
+            if test == 7:
+                break
+        index = index + 1
+
+    #print("# Wrong FU's", test)
+
+
 class Sim:
     IF = "IF"
     ID = "ID"
@@ -58,10 +148,10 @@ class Sim:
 
     EXECUTE_CYCLE_LATENCY_DICT = {0: 1, 1: 2, 2: 5}
 
-    def __init__(self, data, scheduling_queue_size, peak_fetch_dispatch_issue_rate):
+    def __init__(self, instr, scheduling_queue_size, peak_fetch_dispatch_issue_rate):
         self.ready = []
         self.currentCycle = 0
-        self.fakeRob = FakeRob(data)
+        self.fakeRob = FakeRob(instr)
         self.scheduling_queue_size = scheduling_queue_size
         self.peak_fetch_dispatch_issue_rate = peak_fetch_dispatch_issue_rate
         self.dispatch_list = []
@@ -69,84 +159,6 @@ class Sim:
         self.execute_list = []
         self.register_state = {}
         self.epoch = 0
-
-    def print_list(self, state_list):
-        for state in state_list:
-            print(state)
-
-    def get_formatted_output(self):
-        output_array = []
-        output = open("../src/output.txt", "w")
-        Simulator.fakeRob.fake_rob_queue.pop()
-        for data in Simulator.fakeRob.fake_rob_queue:
-            dst_temp = int(data["dst"])
-            src1_temp = int(data["src1"])
-            src2_temp = int(data["src2"])
-
-            output_array.append((str(data["index"] - 1) +
-                                 " fu{" + str(data["operation_type"])
-                                 + "} src{" + str(src1_temp) + "," + str(src2_temp)
-                                 + "} dst{" + str(dst_temp)
-                                 + "} IF{" + str(data["IF_cycle"]) + "," + str(data["IF_duration"])
-                                 + "} ID{" + str(data["ID_cycle"]) + "," + str(data["ID_duration"])
-                                 + "} IS{" + str(data["IS_cycle"]) + "," + str(data["IS_duration"])
-                                 + "} EX{" + str(data["EX_cycle"]) + "," + str(data["EX_duration"])
-                                 + "} WB{" + str(data["WB_cycle"]) + "," + str(data["WB_duration"]) + "}"))
-
-            print(str(data["index"] - 1) +
-                  " fu{" + str(data["operation_type"])
-                  + "} src{" + str(src1_temp) + "," + str(src2_temp)
-                  + "} dst{" + str(dst_temp)
-                  + "} IF{" + str(data["IF_cycle"]) + "," + str(data["IF_duration"])
-                  + "} ID{" + str(data["ID_cycle"]) + "," + str(data["ID_duration"])
-                  + "} IS{" + str(data["IS_cycle"]) + "," + str(data["IS_duration"])
-                  + "} EX{" + str(data["EX_cycle"]) + "," + str(data["EX_duration"])
-                  + "} WB{" + str(data["WB_cycle"]) + "," + str(data["WB_duration"]) + "}")
-
-            output.write((str(data["index"] - 1) +
-                          " fu{" + str(data["operation_type"])
-                          + "} src{" + str(src1_temp) + "," + str(src2_temp)
-                          + "} dst{" + str(dst_temp)
-                          + "} IF{" + str(data["IF_cycle"]) + "," + str(data["IF_duration"])
-                          + "} ID{" + str(data["ID_cycle"]) + "," + str(data["ID_duration"])
-                          + "} IS{" + str(data["IS_cycle"]) + "," + str(data["IS_duration"])
-                          + "} EX{" + str(data["EX_cycle"]) + "," + str(data["EX_duration"])
-                          + "} WB{" + str(data["WB_cycle"]) + "," + str(data["WB_duration"]) + "}") + "\n")
-
-        # Close the fe
-        #     il    output.close()
-
-    def validate_file(self, txt_file):
-        file = open(txt_file, "r")
-        lines = file.readlines()
-        index = 0
-        test = 0
-        for data in Simulator.fakeRob.fake_rob_queue:
-            dst_temp = int(data["dst"])
-            src1_temp = int(data["src1"])
-            src2_temp = int(data["src2"])
-
-            our_line = (str(data["index"]) +
-                        " fu{" + str(data["operation_type"])
-                        + "} src{" + str(src1_temp) + "," + str(src2_temp)
-                        + "} dst{" + str(dst_temp)
-                        + "} IF{" + str(data["IF_cycle"]) + "," + str(data["IF_duration"])
-                        + "} ID{" + str(data["ID_cycle"]) + "," + str(data["ID_duration"])
-                        + "} IS{" + str(data["IS_cycle"]) + "," + str(data["IS_duration"])
-                        + "} EX{" + str(data["EX_cycle"]) + "," + str(data["EX_duration"])
-                        + "} WB{" + str(data["WB_cycle"]) + "," + str(data["WB_duration"]) + "}")
-
-            if our_line != lines[index].strip():
-                print("Ours")
-                print(our_line)
-                print("Expected")
-                print(lines[index].strip())
-                test += 1
-                if test == 7:
-                    break
-            index = index + 1
-
-        #print("# Wrong FU's", test)
 
     def add_instruction_reservation_station(self, instruction):
         # Pass in instruction to rs. Check and see if register has
@@ -198,18 +210,20 @@ class Sim:
         # Execute instructions
         to_remove = []
         for rs in self.execute_list:
+            if self.currentCycle == rs.instruction["WB_cycle"]:
+                # Alert reservation stations
+                self.update_reservation_stations(rs)
+                to_remove.append(rs)
             if rs.instruction["execution_timer"] == self.currentCycle:
                 rs.instruction["EX_duration"] = self.currentCycle - rs.instruction["EX_cycle"] + 1
                 rs.instruction["current_state"] = Sim.WB
                 rs.instruction["WB_duration"] = 1
                 rs.instruction["WB_cycle"] = self.currentCycle + 1
-                # Alert reservation stations
-                self.update_reservation_stations(rs)
                 # When instruction executes check remove instructions from register file
                 reg = self.check_register_state(rs.instruction["dst"])
                 if reg is not None and reg != -1:
                     del self.register_state[rs.instruction["dst"]]
-                to_remove.append(rs)
+
         for item in to_remove:
             self.execute_list.remove(item)
 
@@ -234,22 +248,11 @@ class Sim:
                 if issue_rs.instruction["dst"] == operand:
                     return issue_rs
 
-    def is_ready(self, rs):
-        src1_ready = False
-        src2_ready = False
-
-        if rs.rs1 is None or rs.rs1 == -1 or rs.val1 is not None:
-            src1_ready = True
-        if rs.rs2 is None or rs.rs2 == -1 or rs.val2 is not None:
-            src2_ready = True
-
-        return src1_ready and src2_ready
-
     def issue(self):
         # Issue instructions
         temp_list = sorted(self.issue_list, key=lambda d: d.rs_id)
         for rs in temp_list:
-            if self.is_ready(rs):
+            if is_ready(rs):
                 self.issue_list.remove(rs)
                 rs.instruction["execution_timer"] = self.currentCycle + Sim.EXECUTE_CYCLE_LATENCY_DICT[
                     rs.instruction["operation_type"]]
@@ -331,8 +334,6 @@ class Sim:
             epoch += 1
 
 
-# In[27]:
-
 def debug_print_list(list_to_print):
     print([i["index"] for i in list_to_print])
 
@@ -347,22 +348,9 @@ def read_file(txt_file):
     return data_string + "FFFFF -1 -1 -1 -1\n"
 
 
-# In[36]:
-
-# Need to add funcationlity that takes in inputs.Need to add funcationlity that takes in inputs.
+# Need to add functionality that takes in inputs.Need to add functionality that takes in inputs.
 data = read_file("val_trace_gcc.txt")
 Simulator = Sim(data, 8, 8)
 
-# In[37]:
-
-
 Simulator.main()
-Simulator.validate_file("pipe_8_8_gcc.txt")
-
-# In[38]:
-# Simulator.get_formatted_output()
-
-# In[ ]:
-
-
-# In[ ]:
+validate_file("pipe_8_8_gcc.txt")
