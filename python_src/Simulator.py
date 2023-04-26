@@ -210,10 +210,6 @@ class Sim:
         # Execute instructions
         to_remove = []
         for rs in self.execute_list:
-            if self.currentCycle == rs.instruction["WB_cycle"]:
-                # Alert reservation stations
-                self.update_reservation_stations(rs)
-                to_remove.append(rs)
             if rs.instruction["execution_timer"] == self.currentCycle:
                 rs.instruction["EX_duration"] = self.currentCycle - rs.instruction["EX_cycle"] + 1
                 rs.instruction["current_state"] = Sim.WB
@@ -223,6 +219,9 @@ class Sim:
                 reg = self.check_register_state(rs.instruction["dst"])
                 if reg is not None and reg != -1:
                     del self.register_state[rs.instruction["dst"]]
+                # Alert reservation stations
+                self.update_reservation_stations(rs)
+                to_remove.append(rs)
 
         for item in to_remove:
             self.execute_list.remove(item)
@@ -267,11 +266,12 @@ class Sim:
         for dispatch_instruction in temp_list:
             if dispatch_instruction["ID_cycle"] == -1:
                 dispatch_instruction["ID_cycle"] = self.currentCycle
+            if dispatch_instruction["current_state"] == Sim.IS:
+                self.dispatch_list.remove(dispatch_instruction)
             if len(self.issue_list) < self.scheduling_queue_size:
-                if dispatch_instruction["current_state"] == Sim.IF:
-                    dispatch_instruction["current_state"] = Sim.ID
+                if dispatch_instruction["current_state"] == Sim.ID:
+                    dispatch_instruction["current_state"] = Sim.IS
                     dispatch_instruction["ID_duration"] = self.currentCycle - dispatch_instruction["ID_cycle"] + 1
-                    self.dispatch_list.remove(dispatch_instruction)
                     dispatch_instruction["IS_cycle"] = self.currentCycle + 1
                     self.add_instruction_reservation_station(dispatch_instruction)
 
@@ -279,11 +279,12 @@ class Sim:
         # Fetch instructions
         while len(self.dispatch_list) < self.peak_fetch_dispatch_issue_rate:
             instruction_fetched = self.fakeRob.pop()
+            instruction_fetched["current_state"] = Sim.IF
             if instruction_fetched is None:
                 break
             else:
                 instruction_fetched["IF_cycle"] = self.currentCycle
-                instruction_fetched["current_state"] = Sim.IF
+                instruction_fetched["current_state"] = Sim.ID
                 instruction_fetched["IF_duration"] = 1
                 self.dispatch_list.append(instruction_fetched)
                 # Possilby create a dispatch queue counter
