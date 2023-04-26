@@ -250,8 +250,9 @@ class Sim:
     def issue(self):
         # Issue instructions
         temp_list = sorted(self.issue_list, key=lambda d: d.rs_id)
+        i = 0
         for rs in temp_list:
-            if is_ready(rs):
+            if is_ready(rs) and i < self.peak_fetch_dispatch_issue_rate + 1:
                 self.issue_list.remove(rs)
                 rs.instruction["execution_timer"] = self.currentCycle + Sim.EXECUTE_CYCLE_LATENCY_DICT[
                     rs.instruction["operation_type"]]
@@ -259,27 +260,32 @@ class Sim:
                 rs.instruction["current_state"] = Sim.EX
                 rs.instruction["EX_cycle"] = self.currentCycle + 1
                 self.execute_list.append(rs)
+            i = i + 1
 
     def dispatch(self):
         # Dispatch instructions
+        # Add to the Dispatch queue/ID state first - Put in fetch method
+        # Then next cycle check if ready for Issue queue/state - Add check each cycle if in ID
+        i = 0
         temp_list = sorted(self.dispatch_list, key=lambda d: d["index"])
         for dispatch_instruction in temp_list:
             if dispatch_instruction["ID_cycle"] == -1:
                 dispatch_instruction["ID_cycle"] = self.currentCycle
-            if dispatch_instruction["current_state"] == Sim.IS:
-                self.dispatch_list.remove(dispatch_instruction)
-            if len(self.issue_list) < self.scheduling_queue_size:
+            if len(self.issue_list) < self.scheduling_queue_size and i < self.peak_fetch_dispatch_issue_rate:
                 if dispatch_instruction["current_state"] == Sim.ID:
                     dispatch_instruction["current_state"] = Sim.IS
                     dispatch_instruction["ID_duration"] = self.currentCycle - dispatch_instruction["ID_cycle"] + 1
                     dispatch_instruction["IS_cycle"] = self.currentCycle + 1
                     self.add_instruction_reservation_station(dispatch_instruction)
+                    self.dispatch_list.remove(dispatch_instruction)
+            i = i + 1
 
     def fetch(self):
         # Fetch instructions
-        while len(self.dispatch_list) < self.peak_fetch_dispatch_issue_rate:
+        i = 0
+        while i < self.peak_fetch_dispatch_issue_rate \
+                and len(self.dispatch_list) < self.peak_fetch_dispatch_issue_rate * 2:
             instruction_fetched = self.fakeRob.pop()
-            instruction_fetched["current_state"] = Sim.IF
             if instruction_fetched is None:
                 break
             else:
@@ -288,6 +294,7 @@ class Sim:
                 instruction_fetched["IF_duration"] = 1
                 self.dispatch_list.append(instruction_fetched)
                 # Possilby create a dispatch queue counter
+            i = i + 1
 
     def advance_cycle(self):
         debug_cycle = 2
