@@ -200,32 +200,6 @@ class Sim:
         value = self.register_state.get(register)
         return value
 
-    def fake_retire(self):
-        # Remove instructions
-        # from the head of the fake - ROB
-        # until an instruction is reached that is not in the WB state.
-        return
-
-    def execute(self):
-        # Execute instructions
-        to_remove = []
-        for rs in self.execute_list:
-            if rs.instruction["execution_timer"] == self.currentCycle:
-                rs.instruction["EX_duration"] = self.currentCycle - rs.instruction["EX_cycle"] + 1
-                rs.instruction["current_state"] = Sim.WB
-                rs.instruction["WB_duration"] = 1
-                rs.instruction["WB_cycle"] = self.currentCycle + 1
-                # When instruction executes check remove instructions from register file
-                reg = self.check_register_state(rs.instruction["dst"])
-                if reg is not None and reg != -1:
-                    del self.register_state[rs.instruction["dst"]]
-                # Alert reservation stations
-                self.update_reservation_stations(rs)
-                to_remove.append(rs)
-
-        for item in to_remove:
-            self.execute_list.remove(item)
-
     def update_reservation_stations(self, rs):
         # If a rs1 matches a rs in an issue list
         # and a rs2 matches a rs in an issue list
@@ -247,19 +221,51 @@ class Sim:
                 if issue_rs.instruction["dst"] == operand:
                     return issue_rs
 
+    def fake_retire(self):
+        # Remove instructions
+        # from the head of the fake - ROB
+        # until an instruction is reached that is not in the WB state.
+        return
+
+    def execute(self):
+        # Execute instructions
+        to_remove = []
+        for rs in self.execute_list:
+            if rs.instruction["execution_timer"] == self.currentCycle:
+                rs.instruction["EX_duration"] = self.currentCycle - rs.instruction["EX_cycle"]
+                to_remove.append(rs)
+                rs.instruction["current_state"] = Sim.WB
+                rs.instruction["WB_duration"] = 1
+                rs.instruction["WB_cycle"] = self.currentCycle
+                # When instruction executes check remove instructions from register file
+                reg = self.check_register_state(rs.instruction["dst"])
+                if reg is not None and reg != -1:
+                    del self.register_state[rs.instruction["dst"]]
+                # Alert reservation stations
+                self.update_reservation_stations(rs)
+
+        for item in to_remove:
+            self.execute_list.remove(item)
+
     def issue(self):
-        # Issue instructions
-        temp_list = sorted(self.issue_list, key=lambda d: d.rs_id)
+        # Issue
+        ready_list = []
+        for rs in self.issue_list:
+            if is_ready(rs):
+                ready_list.append(rs)
+        temp_list = sorted(ready_list, key=lambda d: d.rs_id)
         i = 0
         for rs in temp_list:
-            if is_ready(rs) and i < self.peak_fetch_dispatch_issue_rate + 1:
+            if i < self.peak_fetch_dispatch_issue_rate + 1:
                 self.issue_list.remove(rs)
+                self.execute_list.append(rs)
+                rs.instruction["IS_duration"] = self.currentCycle - rs.instruction["IS_cycle"]
+                rs.instruction["current_state"] = Sim.EX
+                rs.instruction["EX_cycle"] = self.currentCycle
                 rs.instruction["execution_timer"] = self.currentCycle + Sim.EXECUTE_CYCLE_LATENCY_DICT[
                     rs.instruction["operation_type"]]
-                rs.instruction["IS_duration"] = self.currentCycle - rs.instruction["IS_cycle"] + 1
-                rs.instruction["current_state"] = Sim.EX
-                rs.instruction["EX_cycle"] = self.currentCycle + 1
-                self.execute_list.append(rs)
+            else:
+                break
             i = i + 1
 
     def dispatch(self):
@@ -267,17 +273,21 @@ class Sim:
         # Add to the Dispatch queue/ID state first - Put in fetch method
         # Then next cycle check if ready for Issue queue/state - Add check each cycle if in ID
         i = 0
-        temp_list = sorted(self.dispatch_list, key=lambda d: d["index"])
+        ready_list = []
+        for instruction in self.dispatch_list:
+            if instruction["current_state"] == Sim.ID:
+                instruction["ID_duration"] = self.currentCycle - instruction["ID_cycle"]
+                ready_list.append(instruction)
+            if instruction["current_state"] == Sim.IF:
+                instruction["current_state"] = Sim.ID
+                instruction["ID_cycle"] = self.currentCycle
+        temp_list = sorted(ready_list, key=lambda d: d["index"])
         for dispatch_instruction in temp_list:
-            if dispatch_instruction["ID_cycle"] == -1:
-                dispatch_instruction["ID_cycle"] = self.currentCycle
             if len(self.issue_list) < self.scheduling_queue_size and i < self.peak_fetch_dispatch_issue_rate:
-                if dispatch_instruction["current_state"] == Sim.ID:
-                    dispatch_instruction["current_state"] = Sim.IS
-                    dispatch_instruction["ID_duration"] = self.currentCycle - dispatch_instruction["ID_cycle"] + 1
-                    dispatch_instruction["IS_cycle"] = self.currentCycle + 1
-                    self.add_instruction_reservation_station(dispatch_instruction)
-                    self.dispatch_list.remove(dispatch_instruction)
+                self.dispatch_list.remove(dispatch_instruction)
+                dispatch_instruction["IS_cycle"] = self.currentCycle
+                dispatch_instruction["current_state"] = Sim.IS
+                self.add_instruction_reservation_station(dispatch_instruction)
             i = i + 1
 
     def fetch(self):
@@ -290,10 +300,10 @@ class Sim:
                 break
             else:
                 instruction_fetched["IF_cycle"] = self.currentCycle
-                instruction_fetched["current_state"] = Sim.ID
+                instruction_fetched["current_state"] = Sim.IF
                 instruction_fetched["IF_duration"] = 1
                 self.dispatch_list.append(instruction_fetched)
-                # Possilby create a dispatch queue counter
+                # Create a dispatch queue counter in next impl
             i = i + 1
 
     def advance_cycle(self):
